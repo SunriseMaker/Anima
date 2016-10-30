@@ -92,7 +92,7 @@ public class Player : MonoBehaviour
 
         if(input_horizontal!=0 || input_vertical!=0)
         {
-            _fighter.Move(input_horizontal, input_vertical);
+            _fighter.Move(input_horizontal, input_vertical, true);
         }
     }
 }

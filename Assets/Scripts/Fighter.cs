@@ -23,9 +23,6 @@ public class Fighter : MonoBehaviour
     private float speed_sideward;
 
     [SerializeField]
-    private float immune_on_hit_duration;
-
-    [SerializeField]
     private CharacterJoint main_joint;
 
     private Rigidbody[] all_rigidbodies;
@@ -40,9 +37,9 @@ public class Fighter : MonoBehaviour
 
     private Rigidbody main_rigidbody;
 
-    private bool _controllable;
-
     private bool ragdoll;
+
+    private bool _controllable;
 
     [HideInInspector]
     public bool controllable
@@ -55,8 +52,6 @@ public class Fighter : MonoBehaviour
     private Vector3 spawn_position;
 
     private Quaternion spawn_rotation;
-
-    private float inverse_input_coefficient;
 
     private float current_input_forward;
     private float previous_input_forward;
@@ -79,6 +74,9 @@ public class Fighter : MonoBehaviour
     private static int ap_combat;
     private static int ap_dead;
     #endregion AnimatorParameters
+
+    private static float heavy_hit_duration;
+    private static float light_hit_duration;
 
     #region StateIDs
     private static int sid_heavy_hit;
@@ -114,6 +112,9 @@ public class Fighter : MonoBehaviour
         sid_moves = new List<int>();
         sid_moves.Add(Animator.StringToHash("Base.MoveForward"));
         sid_moves.Add(Animator.StringToHash("Base.MoveBackward"));
+
+        heavy_hit_duration = 3.0f;
+        light_hit_duration = 0.1f;
     }
     #endregion StaticConstructor
 
@@ -123,6 +124,7 @@ public class Fighter : MonoBehaviour
         int id = GetInstanceID();
 
         _animator = GetComponent<Animator>();
+        
         all_rigidbodies = GetComponentsInChildren<Rigidbody>();
         all_colliders = GetComponentsInChildren<Collider>();
         main_collider = GetComponent<Collider>();
@@ -135,8 +137,6 @@ public class Fighter : MonoBehaviour
     {
         spawn_position = transform.position;
         spawn_rotation = transform.rotation;
-
-        inverse_input_coefficient = FightData.fighter1 == this ? 1.0f : -1.0f;
         
         enemy = FightData.fighter1 == this ? FightData.fighter2 : FightData.fighter1;
 
@@ -186,7 +186,8 @@ public class Fighter : MonoBehaviour
 
         if (collider != null)
         {
-            enemy.Hit(attack_data_component, transform);
+            Fighter _enemy = collider.GetComponent<Fighter>();
+            _enemy.Hit(attack_data_component, transform);
         }
     }
 
@@ -354,11 +355,11 @@ public class Fighter : MonoBehaviour
         }
         else
         {
-            // Immunity
-            if (immune_on_hit_duration > 0)
-            {
-                StartCoroutine(TriggerImmune());
-            }
+            float hit_duration = attack_data.heavy_hit ? heavy_hit_duration : light_hit_duration;
+
+            // Stun & Immunity
+            StopCoroutine("TriggerHit");
+            StartCoroutine(TriggerHit(hit_duration));
 
             int trigger = attack_data.heavy_hit ? ap_heavy_hit : ap_light_hit;
             int current_state_id = CurrentStateID();
@@ -373,12 +374,14 @@ public class Fighter : MonoBehaviour
         }
     }
 
-    private System.Collections.IEnumerator TriggerImmune()
+    private System.Collections.IEnumerator TriggerHit(float duration)
     {
         health.SetImmunity(true);
+        controllable = false;
+        
+        yield return new WaitForSeconds(duration);
 
-        yield return new WaitForSeconds(immune_on_hit_duration);
-
+        controllable = true;
         health.SetImmunity(false);
     }
     #endregion Red
@@ -470,19 +473,39 @@ public class Fighter : MonoBehaviour
     #endregion Look
 
     #region Control
-    public void Move(float input_h, float input_v)
+    public void Move(float horizontal_input, float input_up, bool absolute_input)
     {
-        float corrected_h = input_h * inverse_input_coefficient;
+        float input_forward;
 
-        current_input_forward = corrected_h;
-        current_input_up = input_v;
+        if (absolute_input)
+        {
+            Vector3 middle_position = MiddlePosition();
+            Vector3 camera_position = Singletones.main_camera.transform.position;
+            Vector3 v1 = middle_position - transform.position;
+            Vector3 v2 = middle_position - enemy.transform.position;
+            Vector3 v3 = camera_position - transform.position;
+            Vector3 v4 = camera_position - enemy.transform.position;
+            double angle1 = Mathematics.SignedAngleDegrees(Mathematics.Vector3ToVector2xz(v1), Mathematics.Vector3ToVector2xz(v3));
+            double angle2 = Mathematics.SignedAngleDegrees(Mathematics.Vector3ToVector2xz(v3), Mathematics.Vector3ToVector2xz(v4));
+
+            float forward_input_coefficient = angle1 > angle2 ? -1.0f : 1.0f;
+
+            input_forward = horizontal_input * forward_input_coefficient;
+        }
+        else
+        {
+            input_forward = horizontal_input;
+        }
+
+        current_input_forward = input_forward;
+        current_input_up = input_up;
 
         if (InMoveState())
         {
-            if (input_h != 0)
+            if (input_forward != 0)
             {
-                float speed = System.Math.Sign(corrected_h) > 0 ? speed_forward : speed_backward;
-                transform.position = Vector3.MoveTowards(transform.position, enemy.transform.position, speed * corrected_h * Time.deltaTime);
+                float speed = System.Math.Sign(input_forward) > 0 ? speed_forward : speed_backward;
+                transform.position = Vector3.MoveTowards(transform.position, enemy.transform.position, speed * input_forward * Time.deltaTime);
             }
         }
     }
@@ -529,6 +552,21 @@ public class Fighter : MonoBehaviour
         {
             _animator.SetTrigger(ap_jump);
         }
+    }
+
+    public Vector3 MiddlePosition()
+    {
+        return (transform.position + enemy.transform.position) / 2;
+    }
+
+    public Vector2 EnemyDirection()
+    {
+        return enemy.transform.position - transform.position;
+    }
+
+    public float EnemyDistance()
+    {
+        return Vector3.Distance(enemy.transform.position, transform.position);
     }
     #endregion Control
 }

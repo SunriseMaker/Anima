@@ -3,8 +3,9 @@ using System.Collections.Generic;
 
 public class FighterAI : MonoBehaviour
 {
-    const float ENEMY_DISTANCE = 1.0f;
-    const float COMBO_DELAY = 1.5f;
+    const float ENEMY_DISTANCE = 1.5f;
+    const float DISTANCE_ACCURACY = 0.1f;
+    const float COMBO_DELAY = 0.5f;
 
     private delegate void AttackDelegate();
 
@@ -26,6 +27,12 @@ public class FighterAI : MonoBehaviour
 
         _fighter = GetComponent<Fighter>();
 
+        // TODO: combo constructor
+        // different styles, animators and combo timings
+
+        AttackInfo attack_info_punch_0_4 = new AttackInfo(_fighter.Punch, 0.4f);
+        AttackInfo attack_info_kick_1_0 = new AttackInfo(_fighter.Kick, 1.0f);
+
         combos = new List<Combo>()
         {
             new Combo
@@ -42,9 +49,9 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    new AttackInfo(_fighter.Punch, 0.3f),
-                    new AttackInfo(_fighter.Punch, 0.3f),
-                    new AttackInfo(_fighter.Kick, 1.0f)
+                    attack_info_punch_0_4,
+                    attack_info_punch_0_4,
+                    attack_info_kick_1_0
                 }
             )
             ,
@@ -53,19 +60,8 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    new AttackInfo(_fighter.Kick, 0.2f),
-                    new AttackInfo(_fighter.Kick, 1.0f),
-                    new AttackInfo(_fighter.Jump, 1.5f)
-                }
-            )
-            ,
-            new Combo
-            (
-                _fighter,
-                new List<AttackInfo>()
-                {
-                    new AttackInfo(_fighter.Punch, 0.4f),
-                    new AttackInfo(_fighter.Punch, 0.4f),
+                    attack_info_punch_0_4,
+                    attack_info_punch_0_4,
                     new AttackInfo(JumpKick, 1.0f)
                 }
             )
@@ -75,9 +71,20 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    new AttackInfo(_fighter.Punch, 0.4f),
-                    new AttackInfo(_fighter.Kick, 1.0f),
+                    attack_info_punch_0_4,
+                    attack_info_kick_1_0,
                     new AttackInfo(Slide, 1.0f)
+                }
+            )
+            ,
+            new Combo
+            (
+                _fighter,
+                new List<AttackInfo>()
+                {
+                    new AttackInfo(_fighter.Kick, 0.2f),
+                    attack_info_kick_1_0,
+                    new AttackInfo(_fighter.Jump, 1.5f)
                 }
             )
         };
@@ -85,12 +92,20 @@ public class FighterAI : MonoBehaviour
 
     private void Update()
     {
-        if (_fighter.health.IsDead() || !_fighter.controllable || busy)
+        if (busy || !_fighter.controllable || _fighter.health.IsDead())
         {
             return;
         }
 
-        RandomCombo();
+        if (_fighter.EnemyDistance() - ENEMY_DISTANCE > DISTANCE_ACCURACY)
+        {
+            _fighter.LookAtEnemy();
+            _fighter.Move(1.0f, 0.0f, false);
+        }
+        else
+        {
+            RandomCombo();
+        }
     }
     #endregion MonoBehaviour
 
@@ -130,7 +145,7 @@ public class FighterAI : MonoBehaviour
             up = p2 ? 1.0f : -1.0f;
         }
 
-        _fighter.ComplexMove(forward, up, false, true, false);
+        _fighter.ComplexMove(forward, up, false, false, true);
     }
 
     private void JumpKick()
@@ -172,7 +187,7 @@ public class FighterAI : MonoBehaviour
                 yield return new WaitForSeconds(attacks[i].delay_after_attack);
 
                 // Chance to continue combo and perform next attack
-                if (!(Mathematics.Probability(combo_chance) && Mathematics.Probability(attacks[i].next_attack_chance)))
+                if (!fighter.controllable || !(Mathematics.Probability(combo_chance) && Mathematics.Probability(attacks[i].next_attack_chance)))
                 {
                     break;
                 }

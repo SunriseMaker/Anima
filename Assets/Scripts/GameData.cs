@@ -5,7 +5,7 @@ public class GameData : MonoBehaviour
 {
     #region Variables
     public enum GameMode { Arcade, Versus, AIFight }
-    public static GameMode game_mode = GameMode.Arcade;
+    public static GameMode game_mode = GameMode.Versus;
 
     public enum FighterType { Player, Enemy }
     private static FighterType _fighter1_type;
@@ -124,7 +124,7 @@ public class GameData : MonoBehaviour
                 break;
 
             default:
-                goto case GameMode.Versus;
+                goto case GameMode.Arcade;
         }
 
         InstantiateFighter(true, fighter1_prefab, ref FightData.fighter1, fighter1_type, random_spawn_point, half_distance);
