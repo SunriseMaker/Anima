@@ -142,7 +142,10 @@ public class FightEvents : MonoBehaviour
 
     private System.Collections.IEnumerator cFightEnd()
     {
-        Singletones.hud.Status(FightData.FightWinner()+"\n WON THE FIGHT", FightData.delay_after_last_round);
+        Fighter winner = FightData.FightWinner();
+        string winner_name = winner == null ? "" : winner._name;
+
+        Singletones.hud.Status(winner_name+"\n WON THE FIGHT", FightData.delay_after_last_round);
 
         yield return new WaitForSeconds(FightData.delay_after_last_round);
 

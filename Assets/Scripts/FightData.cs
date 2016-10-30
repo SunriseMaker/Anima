@@ -6,6 +6,8 @@ public static class FightData
 
     public static Fighter fighter2;
 
+    public static int win_count;
+
     public static int fighter1_win_count;
 
     public static int fighter2_win_count;
@@ -13,8 +15,6 @@ public static class FightData
     public static float fighter_hp;
 
     public static float round_time;
-
-    public static float win_count;
 
     public static float round_duration;
 
@@ -36,12 +36,19 @@ public static class FightData
     {
         fighter1 = null;
         fighter2 = null;
+        win_count = 0;
+        fighter1_win_count = 0;
+        fighter2_win_count = 0;
         fighter_hp = 0.0f;
         round_time = 0.0f;
         round_duration = 0.0f;
-        win_count = 0.0f;
-        current_round=0;
-        action=false;
+        current_round = 0;
+        delay_before_first_round = 0.0f;
+        delay_after_last_round = 0.0f;
+        delay_before_round_start = 0.0f;
+        delay_after_round_end = 0.0f;
+        delay_between_rounds = 0.0f;
+        action = false;
     }
 
     public static Fighter RoundWinner()
@@ -95,18 +102,18 @@ public static class FightData
         return fighter1_dead || fighter2.health.IsDead();
     }
 
-    public static string FightWinner()
+    public static Fighter FightWinner()
     {
         if(fighter1_win_count == win_count)
         {
-            return fighter1._name;
+            return fighter1;
         }
 
         if (fighter2_win_count == win_count)
         {
-            return fighter2._name;
+            return fighter2;
         }
 
-        return "";
+        return null;
     }
 }
