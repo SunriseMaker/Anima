@@ -54,7 +54,7 @@ public class MainCamera : MonoBehaviour
         Debug.Assert(FightData.fighter1 != null);
         Debug.Assert(FightData.fighter2 != null);
 
-        camera_state = CameraState.Follow;
+        camera_state = CameraState.Static;
         Vector3 look_at_point, end_position;
         LookAndPosition(out look_at_point, out end_position);
 
@@ -69,13 +69,6 @@ public class MainCamera : MonoBehaviour
 
     private void Event_RoundEnd()
     {
-        StartCoroutine(cRoundEnd());
-    }
-
-    private System.Collections.IEnumerator cRoundEnd()
-    {
-        yield return new WaitForSeconds(FightData.delay_after_round_end / 3);
-        
         camera_state = CameraState.Static;
     }
     #endregion Events
@@ -86,20 +79,15 @@ public class MainCamera : MonoBehaviour
         look_at_point = Vector3.zero;
         end_position = Vector3.zero;
 
-        switch(camera_state)
-        {
-            case CameraState.Follow:
-                Vector3 direction3 = FightData.fighter2.transform.position - FightData.fighter1.transform.position;
-                Vector2 direction2 = Mathematics.Vector3ToVector2xz(direction3);
-                Vector2 normal2 = Mathematics.Vector2Rotate90Clockwise(direction2).normalized;
-                float distance = System.Math.Max(camera_min_distance, direction2.magnitude);
-                Vector3 center_point3 = FightData.fighter1.MiddlePosition();
-                Vector2 center_point2 = Mathematics.Vector3ToVector2xz(center_point3);
-                Vector2 end_position2 = center_point2 + normal2 * distance;
-                look_at_point = center_point3 + Vector3.up * camera_top;
-                end_position = new Vector3(end_position2.x, look_at_point.y, end_position2.y);
-                break;
-        }
+        Vector3 direction3 = FightData.fighter2.transform.position - FightData.fighter1.transform.position;
+        Vector2 direction2 = Mathematics.Vector3ToVector2xz(direction3);
+        Vector2 normal2 = Mathematics.Vector2Rotate90Clockwise(direction2).normalized;
+        float distance = System.Math.Max(camera_min_distance, direction2.magnitude);
+        Vector3 center_point3 = FightData.fighter1.MiddlePosition();
+        Vector2 center_point2 = Mathematics.Vector3ToVector2xz(center_point3);
+        Vector2 end_position2 = center_point2 + normal2 * distance;
+        look_at_point = center_point3 + Vector3.up * camera_top;
+        end_position = new Vector3(end_position2.x, look_at_point.y, end_position2.y);
     }
     #endregion Red
 }

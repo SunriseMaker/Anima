@@ -5,7 +5,7 @@ public class GameData : MonoBehaviour
 {
     #region Variables
     public enum GameMode { Arcade, Versus, AIFight }
-    public static GameMode game_mode = GameMode.Versus;
+    public static GameMode game_mode = GameMode.Arcade;
 
     public enum FighterType { Player, Enemy }
     private static FighterType _fighter1_type;
@@ -77,7 +77,6 @@ public class GameData : MonoBehaviour
     #region MonoBehaviour
     private void Awake()
     {
-        //game_mode
         current_scene_index = Scenes.CurrentSceneIndex();
 
         #region GameEventSystem

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public class FighterAI : MonoBehaviour
 {
-    const float ENEMY_DISTANCE = 1.5f;
+    const float ENEMY_DISTANCE = 1.2f;
     const float DISTANCE_ACCURACY = 0.1f;
     const float COMBO_DELAY = 0.5f;
 
@@ -30,9 +30,6 @@ public class FighterAI : MonoBehaviour
         // TODO: combo constructor
         // different styles, animators and combo timings
 
-        AttackInfo attack_info_punch_0_4 = new AttackInfo(_fighter.Punch, 0.4f);
-        AttackInfo attack_info_kick_1_0 = new AttackInfo(_fighter.Kick, 1.0f);
-
         combos = new List<Combo>()
         {
             new Combo
@@ -49,9 +46,9 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    attack_info_punch_0_4,
-                    attack_info_punch_0_4,
-                    attack_info_kick_1_0
+                    new AttackInfo(_fighter.Punch, 0.4f),
+                    new AttackInfo(_fighter.Punch, 0.3f),
+                    new AttackInfo(_fighter.Kick, 1.2f)
                 }
             )
             ,
@@ -60,9 +57,7 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    attack_info_punch_0_4,
-                    attack_info_punch_0_4,
-                    new AttackInfo(JumpKick, 1.0f)
+                    new AttackInfo(JumpKick, 2.5f)
                 }
             )
             ,
@@ -71,8 +66,8 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    attack_info_punch_0_4,
-                    attack_info_kick_1_0,
+                    new AttackInfo(_fighter.Punch, 0.3f),
+                    new AttackInfo(_fighter.Kick, 1.0f),
                     new AttackInfo(Slide, 1.0f)
                 }
             )
@@ -82,9 +77,19 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    new AttackInfo(_fighter.Kick, 0.2f),
-                    attack_info_kick_1_0,
-                    new AttackInfo(_fighter.Jump, 1.5f)
+                    new AttackInfo(_fighter.Kick, 0.3f),
+                    new AttackInfo(_fighter.Kick, 1.0f),
+                    new AttackInfo(Jump, 2.0f)
+                }
+            )
+            ,
+            new Combo
+            (
+                _fighter,
+                new List<AttackInfo>()
+                {
+                    new AttackInfo(_fighter.Kick, 0.3f),
+                    new AttackInfo(_fighter.Punch, 1.0f)
                 }
             )
         };
@@ -157,6 +162,11 @@ public class FighterAI : MonoBehaviour
     {
         _fighter.ComplexMove(0.0f, -1.0f, false, true, false);
     }
+
+    private void Jump()
+    {
+        _fighter.Jump(false);
+    }
     #endregion Red
 
     #region ChildClasses
@@ -178,7 +188,7 @@ public class FighterAI : MonoBehaviour
         #region Red
         public System.Collections.IEnumerator PerformCombo()
         {
-            for(int i =0; i < attacks.Count; i++)
+            for(int i=0; i < attacks.Count; i++)
             {
                 fighter.LookAtEnemy();
 

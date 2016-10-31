@@ -53,6 +53,8 @@ public class Fighter : MonoBehaviour
 
     private Quaternion spawn_rotation;
 
+    private float forward_input_coefficient;
+
     private float current_input_forward;
     private float previous_input_forward;
 
@@ -138,7 +140,16 @@ public class Fighter : MonoBehaviour
         spawn_position = transform.position;
         spawn_rotation = transform.rotation;
         
-        enemy = FightData.fighter1 == this ? FightData.fighter2 : FightData.fighter1;
+        if(this == FightData.fighter1)
+        {
+            enemy = FightData.fighter2;
+            forward_input_coefficient = 1.0f;
+        }
+        else
+        {
+            enemy = FightData.fighter1;
+            forward_input_coefficient = -1.0f;
+        }
 
         float fighter_hp = FightData.fighter_hp;
         health = new Health(fighter_hp, fighter_hp);
@@ -191,53 +202,6 @@ public class Fighter : MonoBehaviour
         }
     }
 
-    public System.Collections.IEnumerator ActivateRagdoll(float duration)
-    {
-        EnableRagdoll(true);
-
-        bool trigger_control = controllable == true;
-
-        if(trigger_control)
-        {
-            controllable = false;
-        }
-
-        yield return new WaitForSeconds(duration);
-
-        EnableRagdoll(false);
-
-        if (trigger_control)
-        {
-            controllable = true;
-        }
-
-        LookAtEnemy();
-    }
-
-    public System.Collections.IEnumerator cJump(float height, float duration, int steps)
-    {
-        float half_duration = duration / 2;
-        int half_steps = steps / 2;
-        float time_step = half_duration / half_steps;
-        Vector3 delta = Vector3.up * height / half_steps;
-
-        for (var i = 1; i < half_steps; i++)
-        {
-            transform.Translate(delta);
-
-            yield return new WaitForSeconds(time_step);
-        }
-
-        delta *= -1;
-
-        for (var i = 1; i < half_steps; i++)
-        {
-            transform.Translate(delta);
-
-            yield return new WaitForSeconds(time_step);
-        }
-    }
-
     #region EventReactions
     private void Event_FightStart()
     {
@@ -264,12 +228,12 @@ public class Fighter : MonoBehaviour
 
     private void Event_RoundStart()
     {
-        controllable = true;
+        Stun(false);
     }
 
     private void Event_RoundEnd()
     {
-        controllable = false;
+        Stun(true);
 
         if (health.IsDead())
         {
@@ -336,12 +300,10 @@ public class Fighter : MonoBehaviour
 
         if (health.IsDead())
         {
-            // Ragdoll
-            //StartCoroutine(ActivateRagdoll(FightData.delay_between_rounds));
+            StopCoroutine("TriggerStun");
 
             EnableRagdoll(true);
 
-            // Force
             Vector3 force = attack_data.CalculateForce(attacker);
 
             if (force.magnitude > 0)
@@ -357,9 +319,7 @@ public class Fighter : MonoBehaviour
         {
             float hit_duration = attack_data.heavy_hit ? heavy_hit_duration : light_hit_duration;
 
-            // Stun & Immunity
-            StopCoroutine("TriggerHit");
-            StartCoroutine(TriggerHit(hit_duration));
+            StartCoroutine(TriggerStun(hit_duration));
 
             int trigger = attack_data.heavy_hit ? ap_heavy_hit : ap_light_hit;
             int current_state_id = CurrentStateID();
@@ -374,15 +334,16 @@ public class Fighter : MonoBehaviour
         }
     }
 
-    private System.Collections.IEnumerator TriggerHit(float duration)
+    private System.Collections.IEnumerator TriggerStun(float duration)
     {
-        health.SetImmunity(true);
-        controllable = false;
-        
-        yield return new WaitForSeconds(duration);
+        if (controllable)
+        {
+            Stun(true);
 
-        controllable = true;
-        health.SetImmunity(false);
+            yield return new WaitForSeconds(duration);
+
+            Stun(false);
+        }
     }
     #endregion Red
 
@@ -473,28 +434,11 @@ public class Fighter : MonoBehaviour
     #endregion Look
 
     #region Control
-    public void Move(float horizontal_input, float input_up, bool absolute_input)
+    public void Move(float input_forward, float input_up, bool absolute_input)
     {
-        float input_forward;
-
         if (absolute_input)
         {
-            Vector3 middle_position = MiddlePosition();
-            Vector3 camera_position = Singletones.main_camera.transform.position;
-            Vector3 v1 = middle_position - transform.position;
-            Vector3 v2 = middle_position - enemy.transform.position;
-            Vector3 v3 = camera_position - transform.position;
-            Vector3 v4 = camera_position - enemy.transform.position;
-            double angle1 = Mathematics.SignedAngleDegrees(Mathematics.Vector3ToVector2xz(v1), Mathematics.Vector3ToVector2xz(v3));
-            double angle2 = Mathematics.SignedAngleDegrees(Mathematics.Vector3ToVector2xz(v3), Mathematics.Vector3ToVector2xz(v4));
-
-            float forward_input_coefficient = angle1 > angle2 ? -1.0f : 1.0f;
-
-            input_forward = horizontal_input * forward_input_coefficient;
-        }
-        else
-        {
-            input_forward = horizontal_input;
+            input_forward = input_forward * forward_input_coefficient;
         }
 
         current_input_forward = input_forward;
@@ -520,9 +464,16 @@ public class Fighter : MonoBehaviour
         _animator.SetTrigger(ap_punch);
     }
 
-    public void Jump()
+    public void Jump(bool user)
     {
-        StartCoroutine(TriggerBoolParameter(ap_jump));
+        if(user)
+        {
+            StartCoroutine(TriggerBoolParameter(ap_jump));
+        }
+        else
+        {
+            _animator.SetBool(ap_jump, true);
+        }
     }
 
     public void Taunt()
@@ -567,6 +518,12 @@ public class Fighter : MonoBehaviour
     public float EnemyDistance()
     {
         return Vector3.Distance(enemy.transform.position, transform.position);
+    }
+
+    private void Stun(bool b)
+    {
+        health.SetImmunity(b);
+        controllable = !b;
     }
     #endregion Control
 }

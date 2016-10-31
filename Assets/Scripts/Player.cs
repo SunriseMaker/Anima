@@ -87,7 +87,7 @@ public class Player : MonoBehaviour
 
         if(input_jump)
         {
-            _fighter.Jump();
+            _fighter.Jump(true);
         }
 
         if(input_horizontal!=0 || input_vertical!=0)
