@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public class GameEventSystem
 {
-    public enum EventID { FightStart, RoundPreStart, RoundStart, RoundEnd, FightEnd }
+    public enum EventID { FightStart, RoundPreStart, RoundStart, RoundEnd, RoundResults, FightEnd }
 
     #region Variables
     private static Dictionary<EventID, UnityEvent> events = new Dictionary<EventID, UnityEvent>();

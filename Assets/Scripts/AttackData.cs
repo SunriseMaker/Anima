@@ -3,81 +3,42 @@
 public class AttackData : MonoBehaviour
 {
     #region Variables
-    private enum ForceDirectionFB { Zero, Forward, Backward }
-
-    private enum ForceDirectionUD { Zero, Up, Down };
-
-    private enum ForceDirectionLR { Zero, Right, Left };
-
     [SerializeField]
-    private ForceDirectionFB force_direction_fb;
+    [Tooltip("Attacker relative force direction\nx = forward\ny = up\nz = right")]
+    private Vector3 force_direction;
 
-    [SerializeField]
-    private ForceDirectionUD force_direction_ud;
+    public float regular_force;
 
-    [SerializeField]
-    private ForceDirectionLR force_direction_lr;
+    public float finisher_force;
 
     public float damage;
-
-    public float force;
 
     public float attack_distance;
 
     public bool heavy_hit;
+
+    public float stun_duration;
+
+    public GameObject visual_effect;
     #endregion Variables
 
     #region Red
-    public Vector3 CalculateForce(Transform attacker)
+    public void ApplyForce(Transform attacker, Rigidbody enemy, bool finisher)
     {
-        Vector3 fb, ud, lr;
+        float force_amount = finisher ? finisher_force : regular_force;
 
-        switch(force_direction_fb)
+        Vector3 fb = force_direction.x * attacker.forward;
+
+        Vector3 ud = force_direction.y * attacker.up;
+
+        Vector3 lr = force_direction.z * attacker.right;
+
+        Vector3 calculated_force = (fb + ud + lr) * force_amount;
+
+        if(calculated_force.magnitude>0)
         {
-            case ForceDirectionFB.Forward:
-                fb = attacker.forward;
-                break;
-
-            case ForceDirectionFB.Backward:
-                fb = attacker.forward * -1;
-                break;
-
-            default:
-                fb = Vector3.zero;
-                break;
+            enemy.AddForce(calculated_force, ForceMode.VelocityChange);
         }
-
-        switch (force_direction_ud)
-        {
-            case ForceDirectionUD.Up:
-                ud = attacker.up;
-                break;
-
-            case ForceDirectionUD.Down:
-                ud = attacker.up*-1;
-                break;
-
-            default:
-                ud = Vector3.zero;
-                break;
-        }
-
-        switch (force_direction_lr)
-        {
-            case ForceDirectionLR.Right:
-                lr = attacker.right;
-                break;
-
-            case ForceDirectionLR.Left:
-                lr = attacker.right * -1;
-                break;
-
-            default:
-                lr = Vector3.zero;
-                break;
-        }
-
-        return (fb + ud + lr) * force;
     }
     #endregion Red
 }

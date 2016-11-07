@@ -50,12 +50,12 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
-        if(_fighter.health.IsDead() || !_fighter.controllable)
+        if (_fighter.Stunned || _fighter.health.IsDead())
         {
             return;
         }
 
-        input_horizontal = System.Math.Sign(Input.GetAxis(axis_prefix+"Horizontal"));
+        input_horizontal = System.Math.Sign(Input.GetAxis(axis_prefix + "Horizontal"));
         input_vertical = System.Math.Sign(Input.GetAxis(axis_prefix + "Vertical"));
         input_kick = Input.GetButtonDown(axis_prefix + "Kick");
         input_punch = Input.GetButtonDown(axis_prefix + "Punch");
@@ -63,9 +63,12 @@ public class Player : MonoBehaviour
         input_taunt = Input.GetButtonDown(axis_prefix + "Taunt");
         input_cancel = Input.GetButtonDown(axis_prefix + "Cancel");
 
-        bool any_input = input_horizontal != 0 || input_vertical != 0 || input_kick || input_punch || input_jump;
+        if (input_horizontal != 0 || input_vertical != 0)
+        {
+            _fighter.Move(input_horizontal, input_vertical, true);
+        }
 
-        if(any_input)
+        if (input_kick || input_punch || input_jump)
         {
             _fighter.LookAtEnemy();
         }
@@ -88,11 +91,6 @@ public class Player : MonoBehaviour
         if(input_jump)
         {
             _fighter.Jump(true);
-        }
-
-        if(input_horizontal!=0 || input_vertical!=0)
-        {
-            _fighter.Move(input_horizontal, input_vertical, true);
         }
     }
 }

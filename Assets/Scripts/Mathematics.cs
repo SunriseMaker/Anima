@@ -5,6 +5,19 @@ public static class Mathematics
 {
     public static System.Random random = new System.Random();
 
+    /// <summary>
+    /// Returns random value between Min and Max.
+    /// </summary>
+    public static double NextDoubleMinMax(this System.Random random, double min, double max)
+    {
+        return random.NextDouble() * (max - min) + min;
+    }
+
+    public static float NextFloatMinMax(this System.Random random, float min, float max)
+    {
+        return (float)NextDoubleMinMax(random, min, max);
+    }
+
     public static void SolveQuadraticEquation(double a, double b, double c, out double x1, out double x2)
     {
         //Quadratic Formula: x = (-b +- sqrt(b^2 - 4ac)) / 2a

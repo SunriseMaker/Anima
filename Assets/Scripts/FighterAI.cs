@@ -3,13 +3,16 @@ using System.Collections.Generic;
 
 public class FighterAI : MonoBehaviour
 {
-    const float ENEMY_DISTANCE = 1.2f;
-    const float DISTANCE_ACCURACY = 0.1f;
-    const float COMBO_DELAY = 0.5f;
-
+    #region Variables
     private delegate void AttackDelegate();
 
-    #region Variables
+    private static float combo_min_delay = 0.25f;
+
+    private static float combo_max_delay = 1.0f;
+
+    private static float enemy_distance = 1.2f;
+
+    private static float distance_accuracy = 0.1f;
 
     private static double combo_chance = 1.0d;
 
@@ -46,7 +49,6 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    new AttackInfo(_fighter.Punch, 0.4f),
                     new AttackInfo(_fighter.Punch, 0.3f),
                     new AttackInfo(_fighter.Kick, 1.2f)
                 }
@@ -57,18 +59,9 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    new AttackInfo(JumpKick, 2.5f)
-                }
-            )
-            ,
-            new Combo
-            (
-                _fighter,
-                new List<AttackInfo>()
-                {
                     new AttackInfo(_fighter.Punch, 0.3f),
-                    new AttackInfo(_fighter.Kick, 1.0f),
-                    new AttackInfo(Slide, 1.0f)
+                    new AttackInfo(_fighter.Punch, 0.3f),
+                    new AttackInfo(_fighter.Kick, 1.7f)
                 }
             )
             ,
@@ -77,9 +70,7 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
-                    new AttackInfo(_fighter.Kick, 0.3f),
-                    new AttackInfo(_fighter.Kick, 1.0f),
-                    new AttackInfo(Jump, 2.0f)
+                    new AttackInfo(JumpKick, 2.1f)
                 }
             )
             ,
@@ -92,19 +83,57 @@ public class FighterAI : MonoBehaviour
                     new AttackInfo(_fighter.Punch, 1.0f)
                 }
             )
+            ,
+            new Combo
+            (
+                _fighter,
+                new List<AttackInfo>()
+                {
+                    new AttackInfo(_fighter.Kick, 0.3f),
+                    new AttackInfo(Jump, 1.3f)
+                }
+            )
+            ,
+            new Combo
+            (
+                _fighter,
+                new List<AttackInfo>()
+                {
+                    new AttackInfo(_fighter.Kick, 0.3f),
+                    new AttackInfo(_fighter.Kick, 1.0f)
+                }
+            )
+            ,
+            new Combo
+            (
+                _fighter,
+                new List<AttackInfo>()
+                {
+                    new AttackInfo(BackDoubleKick, 0.5f),
+                    new AttackInfo(RisingUppercut, 1.5f)
+                }
+            )
+            ,
+            new Combo
+            (
+                _fighter,
+                new List<AttackInfo>()
+                {
+                    new AttackInfo(Slide, 1.4f)
+                }
+            )
         };
     }
-
+    
     private void Update()
     {
-        if (busy || !_fighter.controllable || _fighter.health.IsDead())
+        if (busy || _fighter.Stunned || _fighter.health.IsDead())
         {
             return;
         }
 
-        if (_fighter.EnemyDistance() - ENEMY_DISTANCE > DISTANCE_ACCURACY)
+        if (_fighter.EnemyDistance() - enemy_distance > distance_accuracy)
         {
-            _fighter.LookAtEnemy();
             _fighter.Move(1.0f, 0.0f, false);
         }
         else
@@ -114,12 +143,14 @@ public class FighterAI : MonoBehaviour
     }
     #endregion MonoBehaviour
 
-    #region Red
+    #region Combo
     private void RandomCombo()
     {
         int random_combo = Mathematics.random.Next(combos.Count);
 
-        StartCoroutine(StartCombo(combos[random_combo], COMBO_DELAY));
+        float combo_delay = Mathematics.random.NextFloatMinMax(combo_min_delay, combo_max_delay);
+
+        StartCoroutine(StartCombo(combos[random_combo], combo_delay));
     }
 
     private System.Collections.IEnumerator StartCombo(Combo combo, float delay)
@@ -132,7 +163,9 @@ public class FighterAI : MonoBehaviour
 
         busy = false;
     }
+    #endregion Combo
 
+    #region Moves
     private void RandomEvade()
     {
         float forward = 0.0f;
@@ -167,7 +200,17 @@ public class FighterAI : MonoBehaviour
     {
         _fighter.Jump(false);
     }
-    #endregion Red
+
+    private void RisingUppercut()
+    {
+        _fighter.ComplexMove(0.0f, 1.0f, true, false, false);
+    }
+
+    private void BackDoubleKick()
+    {
+        _fighter.ComplexMove(-1.0f, 0.0f, false, true, false);
+    }
+    #endregion Moves
 
     #region ChildClasses
     private class Combo
@@ -197,7 +240,7 @@ public class FighterAI : MonoBehaviour
                 yield return new WaitForSeconds(attacks[i].delay_after_attack);
 
                 // Chance to continue combo and perform next attack
-                if (!fighter.controllable || !(Mathematics.Probability(combo_chance) && Mathematics.Probability(attacks[i].next_attack_chance)))
+                if (fighter.Stunned || !(Mathematics.Probability(combo_chance) && Mathematics.Probability(attacks[i].next_attack_chance)))
                 {
                     break;
                 }

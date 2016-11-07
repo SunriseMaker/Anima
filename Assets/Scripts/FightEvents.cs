@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 
 public class FightEvents : MonoBehaviour
 {
@@ -9,6 +10,7 @@ public class FightEvents : MonoBehaviour
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundPreStart, Event_RoundPreStart);
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundStart, Event_RoundStart);
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundEnd, Event_RoundEnd);
+        GameEventSystem.StartListening(GameEventSystem.EventID.RoundResults, Event_RoundResults);
         GameEventSystem.StartListening(GameEventSystem.EventID.FightEnd, Event_FightEnd);
 
         GameEventSystem.TriggerEvent(GameEventSystem.EventID.FightStart);
@@ -78,6 +80,9 @@ public class FightEvents : MonoBehaviour
     {
         FightData.action = false;
 
+        // Update wins info
+        FightData.RoundEnd();
+        
         StartCoroutine(cRoundEnd());
     }
 
@@ -89,29 +94,24 @@ public class FightEvents : MonoBehaviour
 
         yield return new WaitForSeconds(FightData.delay_after_round_end);
 
-        Fighter winner = FightData.RoundWinner();
+        GameEventSystem.TriggerEvent(GameEventSystem.EventID.RoundResults);
+    }
+    #endregion RoundEnd
 
-        if(winner==FightData.fighter1)
-        {
-            FightData.fighter1_win_count++;
-        }
-        else
-        {
-            if (winner == FightData.fighter2)
-            {
-                FightData.fighter2_win_count++;
-            }
-        }
+    #region RoundResults
+    private void Event_RoundResults()
+    {
+        string message;
 
-        if(winner == null)
+        if (FightData.current_round_winner == null)
         {
             message = "DRAW";
         }
         else
         {
-            message = winner._name+ "\nWINS";
+            message = FightData.current_round_winner._name + " WINS";
 
-            if(winner.health.CurrentHealth()== winner.health.MaxHealth())
+            if (FightData.current_round_winner.health.CurrentHealth() == FightData.current_round_winner.health.MaxHealth())
             {
                 message += "\nPERFECT";
             }
@@ -119,20 +119,21 @@ public class FightEvents : MonoBehaviour
 
         Singletones.hud.Status(message, FightData.delay_between_rounds);
 
-        if (System.Math.Max(FightData.fighter1_win_count, FightData.fighter2_win_count) < FightData.win_count)
-        {
-            yield return new WaitForSeconds(FightData.delay_between_rounds);
-
-            GameEventSystem.TriggerEvent(GameEventSystem.EventID.RoundPreStart);
-        }
-        else
-        {
-            yield return new WaitForSeconds(FightData.delay_after_last_round);
-
-            GameEventSystem.TriggerEvent(GameEventSystem.EventID.FightEnd);
-        }
+        StartCoroutine(cRoundResults());
     }
-    #endregion RoundEnd
+
+    private System.Collections.IEnumerator cRoundResults()
+    {
+        yield return new WaitForSeconds(FightData.delay_between_rounds);
+
+        GameEventSystem.EventID event_id =
+            FightData.fight_winner == null ?
+            GameEventSystem.EventID.RoundPreStart :
+            GameEventSystem.EventID.FightEnd;
+
+        GameEventSystem.TriggerEvent(event_id);
+    }
+    #endregion RoundResults
 
     #region FightEnd
     private void Event_FightEnd()
@@ -142,10 +143,7 @@ public class FightEvents : MonoBehaviour
 
     private System.Collections.IEnumerator cFightEnd()
     {
-        Fighter winner = FightData.FightWinner();
-        string winner_name = winner == null ? "" : winner._name;
-
-        Singletones.hud.Status(winner_name+"\n WON THE FIGHT", FightData.delay_after_last_round);
+        Singletones.hud.Status(FightData.current_round_winner._name + "\n WON THE FIGHT", FightData.delay_after_last_round);
 
         yield return new WaitForSeconds(FightData.delay_after_last_round);
 

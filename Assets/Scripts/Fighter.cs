@@ -7,6 +7,8 @@ public class Fighter : MonoBehaviour
     #region Variables
     const float FULL_CIRCLE_RADIANS = 6.3f;
 
+    const float ROTATION_SPEED = 1.0f;
+
     public string _name;
 
     [Header("HEALTH")]
@@ -39,15 +41,9 @@ public class Fighter : MonoBehaviour
 
     private bool ragdoll;
 
-    private bool _controllable;
+    private float stun;
 
-    [HideInInspector]
-    public bool controllable
-    {
-        get { return _controllable; }
-
-        private set { _controllable = value; }
-    }
+    public bool Stunned { get { return stun > 0; } }
 
     private Vector3 spawn_position;
 
@@ -69,16 +65,13 @@ public class Fighter : MonoBehaviour
     private static int ap_up;
     private static int ap_light_hit;
     private static int ap_heavy_hit;
-    private static int ap_taunt;
     private static int ap_show_start;
     private static int ap_show_win;
     private static int ap_show_lose;
+    private static int ap_show_taunt;
     private static int ap_combat;
     private static int ap_dead;
     #endregion AnimatorParameters
-
-    private static float heavy_hit_duration;
-    private static float light_hit_duration;
 
     #region StateIDs
     private static int sid_heavy_hit;
@@ -89,12 +82,15 @@ public class Fighter : MonoBehaviour
     #endregion StateIDs
     #endregion Variables
 
+    private static float total_mass = 18.0f;
+
     #region StaticConstructor
     static Fighter()
     {
         ap_show_start = Animator.StringToHash("Show_Start");
         ap_show_win = Animator.StringToHash("Show_Win");
         ap_show_lose = Animator.StringToHash("Show_Lose");
+        ap_show_taunt = Animator.StringToHash("Show_Taunt");
         ap_kick = Animator.StringToHash("Kick");
         ap_punch = Animator.StringToHash("Punch");
         ap_jump = Animator.StringToHash("Jump");
@@ -102,7 +98,6 @@ public class Fighter : MonoBehaviour
         ap_up = Animator.StringToHash("Up");
         ap_light_hit = Animator.StringToHash("Light_Hit");
         ap_heavy_hit = Animator.StringToHash("Heavy_Hit");
-        ap_taunt = Animator.StringToHash("Taunt");
         ap_combat = Animator.StringToHash("Combat");
         ap_dead = Animator.StringToHash("Dead");
 
@@ -114,9 +109,6 @@ public class Fighter : MonoBehaviour
         sid_moves = new List<int>();
         sid_moves.Add(Animator.StringToHash("Base.MoveForward"));
         sid_moves.Add(Animator.StringToHash("Base.MoveBackward"));
-
-        heavy_hit_duration = 3.0f;
-        light_hit_duration = 0.1f;
     }
     #endregion StaticConstructor
 
@@ -131,6 +123,8 @@ public class Fighter : MonoBehaviour
         all_colliders = GetComponentsInChildren<Collider>();
         main_collider = GetComponent<Collider>();
         main_rigidbody = GetComponent<Rigidbody>();
+
+        DistributeMass();
 
         EnableRagdoll(false);
     }
@@ -158,6 +152,7 @@ public class Fighter : MonoBehaviour
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundPreStart, Event_RoundPreStart);
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundStart, Event_RoundStart);
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundEnd, Event_RoundEnd);
+        GameEventSystem.StartListening(GameEventSystem.EventID.RoundResults, Event_RoundResults);
     }
 
     private void FixedUpdate()
@@ -169,10 +164,17 @@ public class Fighter : MonoBehaviour
             return;
         }
 
-        const float RAY_MAX_DISTANCE = 5.0f;
+        if (Stunned)
+        {
+            stun -= Time.deltaTime;
+        }
 
+        const float RAY_MAX_DISTANCE = 10.0f;
+
+        // Ray forward
         //Debug.DrawRay(transform.position, transform.forward * 2, Color.red, 2.0f);
-        
+
+        // Ray down
         //Debug.DrawRay(transform.position + transform.up, transform.up * -1 * RAY_MAX_DISTANCE, Color.green, 0.5f);
 
         Ray ray = new Ray(transform.position + transform.up, transform.up * -1);
@@ -180,6 +182,7 @@ public class Fighter : MonoBehaviour
         if (!Physics.Raycast(ray, RAY_MAX_DISTANCE, LayerMasks.Ground))
         {
             health.Kill();
+            EnableRagdoll(true);
         }
     }
     #endregion MonoBehaviour
@@ -187,18 +190,64 @@ public class Fighter : MonoBehaviour
     #region Red
     public void Attack(UnityEngine.Object attack_data_object)
     {
-        GameObject attack_data_gameobject = (GameObject)attack_data_object;
-        AttackData attack_data_component = attack_data_gameobject.GetComponent<AttackData>();
+        AttackData attack_data = ((GameObject)attack_data_object).GetComponent<AttackData>();
+
+        Debug.Assert(attack_data != null);
 
         RaycastHit hit_info;
-        Physics.Raycast(transform.position + transform.up, transform.forward, out hit_info, attack_data_component.attack_distance, LayerMasks.Enemy);
-        //Debug.DrawRay(transform.position + transform.up, transform.forward * attack_data_component.attack_distance, Color.red, 2.0f);
+        Physics.Raycast(transform.position + transform.up, transform.forward, out hit_info, attack_data.attack_distance, LayerMasks.Enemy);
+        Debug.DrawRay(transform.position + transform.up, transform.forward * attack_data.attack_distance, Color.red, 2.0f);
         Collider collider = hit_info.collider;
 
-        if (collider != null)
+        if (collider == null)
         {
-            Fighter _enemy = collider.GetComponent<Fighter>();
-            _enemy.Hit(attack_data_component, transform);
+            return;
+        }
+
+        Debug.Assert(collider.name != name);
+
+        Fighter _enemy = collider.GetComponent<Fighter>();
+
+        Debug.Assert(_enemy != null);
+
+        if (_enemy.health.IsDead())
+        {
+            return;
+        }
+
+        if(attack_data.visual_effect!=null)
+        {
+            Instantiate(attack_data.visual_effect, hit_info.point, attack_data.visual_effect.transform.rotation);
+        }
+
+        _enemy.health.Injure(attack_data.damage);
+
+        if (_enemy.health.IsDead())
+        {
+            _enemy.EnableRagdoll(true);
+
+            attack_data.ApplyForce(transform, _enemy.main_rigidbody, true);
+
+            // Death animation
+            //_enemy._animator.SetBool(ap_dead, true);
+        }
+        else
+        {
+            _enemy.stun = attack_data.stun_duration;
+
+            int trigger = attack_data.heavy_hit ? ap_heavy_hit : ap_light_hit;
+            int current_state_id = _enemy.CurrentStateID();
+
+            // Nothing can interrupt HeavyHit state
+            // HeavyHit can interrupt LightHit state
+
+            if (current_state_id != sid_heavy_hit && !(current_state_id == sid_light_hit && !attack_data.heavy_hit))
+            {
+                _enemy.LookAtEnemy();
+                _enemy._animator.SetTrigger(trigger);
+            }
+
+            attack_data.ApplyForce(transform, _enemy.main_rigidbody, false);
         }
     }
 
@@ -228,30 +277,28 @@ public class Fighter : MonoBehaviour
 
     private void Event_RoundStart()
     {
-        Stun(false);
+        stun = 0.0f;
     }
 
     private void Event_RoundEnd()
     {
-        Stun(true);
+        stun = float.MaxValue;
+    }
+
+    private void Event_RoundResults()
+    {
+        const float FAR_AWAY = 1000.0f;
 
         if (health.IsDead())
         {
+            transform.position = new Vector3(FAR_AWAY, FAR_AWAY, FAR_AWAY);
             return;
         }
 
-        StartCoroutine(cRoundEnd());
-    }
+        TeleportToSpawnPoint();
+        LookAtCamera(true);
 
-    private System.Collections.IEnumerator cRoundEnd()
-    {
-        yield return new WaitForSeconds(FightData.delay_after_round_end);
-
-        LookAtCamera();
-
-        Fighter winner = FightData.RoundWinner();
-
-        if (winner == this)
+        if (FightData.current_round_winner == this)
         {
             _animator.SetTrigger(ap_show_win);
         }
@@ -266,6 +313,20 @@ public class Fighter : MonoBehaviour
     {
         transform.position = spawn_position;
         transform.rotation = spawn_rotation;
+    }
+
+    private void DistributeMass()
+    {
+        int rb_count = all_rigidbodies.Count();
+        
+        Debug.Assert(rb_count > 0);
+        
+        float rb_mass = total_mass / rb_count;
+        
+        foreach (Rigidbody r in all_rigidbodies)
+        {
+            r.mass = rb_mass;
+        }
     }
 
     private void EnableRagdoll(bool b)
@@ -287,63 +348,6 @@ public class Fighter : MonoBehaviour
         main_collider.enabled = !b;
 
         _animator.enabled = !b;
-    }
-
-    private void Hit(AttackData attack_data, Transform attacker)
-    {
-        if(health.IsDead())
-        {
-            return;
-        }
-
-        health.Injure(attack_data.damage);
-
-        if (health.IsDead())
-        {
-            StopCoroutine("TriggerStun");
-
-            EnableRagdoll(true);
-
-            Vector3 force = attack_data.CalculateForce(attacker);
-
-            if (force.magnitude > 0)
-            {
-                main_rigidbody.AddForce(force, ForceMode.VelocityChange);
-            }
-            else
-            {
-                _animator.SetBool(ap_dead, true);
-            }
-        }
-        else
-        {
-            float hit_duration = attack_data.heavy_hit ? heavy_hit_duration : light_hit_duration;
-
-            StartCoroutine(TriggerStun(hit_duration));
-
-            int trigger = attack_data.heavy_hit ? ap_heavy_hit : ap_light_hit;
-            int current_state_id = CurrentStateID();
-
-            // Nothing can interrupt HeavyHit state
-            // HeavyHit can interrupt LightHit state
-
-            if (current_state_id != sid_heavy_hit && !(current_state_id == sid_light_hit && !attack_data.heavy_hit))
-            {
-                _animator.SetTrigger(trigger);
-            }
-        }
-    }
-
-    private System.Collections.IEnumerator TriggerStun(float duration)
-    {
-        if (controllable)
-        {
-            Stun(true);
-
-            yield return new WaitForSeconds(duration);
-
-            Stun(false);
-        }
     }
     #endregion Red
 
@@ -406,7 +410,7 @@ public class Fighter : MonoBehaviour
         LookAtTarget(enemy.transform.position);
     }
 
-    private void LookAtCamera()
+    private void LookAtCamera(bool instant_rotation)
     {
         LookAtTarget(Singletones.main_camera.transform.position);
     }
@@ -448,6 +452,8 @@ public class Fighter : MonoBehaviour
         {
             if (input_forward != 0)
             {
+                LookAtEnemy();
+
                 float speed = System.Math.Sign(input_forward) > 0 ? speed_forward : speed_backward;
                 transform.position = Vector3.MoveTowards(transform.position, enemy.transform.position, speed * input_forward * Time.deltaTime);
             }
@@ -479,8 +485,9 @@ public class Fighter : MonoBehaviour
     public void Taunt()
     {
         LookAtEnemy();
-        _animator.SetTrigger(ap_taunt);
+        _animator.SetTrigger(ap_show_taunt);
     }
+
     public void ComplexMove(float forward, float up, bool punch, bool kick, bool jump)
     {
         current_input_forward = forward;
@@ -510,20 +517,12 @@ public class Fighter : MonoBehaviour
         return (transform.position + enemy.transform.position) / 2;
     }
 
-    public Vector2 EnemyDirection()
-    {
-        return enemy.transform.position - transform.position;
-    }
-
     public float EnemyDistance()
     {
-        return Vector3.Distance(enemy.transform.position, transform.position);
-    }
-
-    private void Stun(bool b)
-    {
-        health.SetImmunity(b);
-        controllable = !b;
+        return Vector2.Distance(
+            Mathematics.Vector3ToVector2xz(enemy.transform.position),
+            Mathematics.Vector3ToVector2xz(transform.position)
+            );
     }
     #endregion Control
 }
