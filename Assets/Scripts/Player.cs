@@ -50,7 +50,7 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
-        if (_fighter.Stunned || _fighter.health.IsDead())
+        if (!_fighter.Controllable())
         {
             return;
         }

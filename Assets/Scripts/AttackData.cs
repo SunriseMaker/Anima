@@ -17,8 +17,6 @@ public class AttackData : MonoBehaviour
 
     public bool heavy_hit;
 
-    public float stun_duration;
-
     public GameObject visual_effect;
     #endregion Variables
 

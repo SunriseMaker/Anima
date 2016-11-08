@@ -6,11 +6,11 @@ public class FighterAI : MonoBehaviour
     #region Variables
     private delegate void AttackDelegate();
 
-    private static float combo_min_delay = 0.25f;
+    private static float combo_min_delay = 0.0f;
 
-    private static float combo_max_delay = 1.0f;
+    private static float combo_max_delay = 0.0f;
 
-    private static float enemy_distance = 1.2f;
+    private static float enemy_distance = 1.1f;
 
     private static float distance_accuracy = 0.1f;
 
@@ -21,6 +21,8 @@ public class FighterAI : MonoBehaviour
     private bool busy;
 
     private List<Combo> combos;
+
+    private int current_combo;
     #endregion Variables
 
     #region MonoBehaviour
@@ -70,6 +72,7 @@ public class FighterAI : MonoBehaviour
                 _fighter,
                 new List<AttackInfo>()
                 {
+                    new AttackInfo(RisingUppercut, 0.3f),
                     new AttackInfo(JumpKick, 2.1f)
                 }
             )
@@ -123,11 +126,13 @@ public class FighterAI : MonoBehaviour
                 }
             )
         };
+
+        Debug.Assert(combos.Count > 0);
     }
     
     private void Update()
     {
-        if (busy || _fighter.Stunned || _fighter.health.IsDead())
+        if (busy || !_fighter.Controllable())
         {
             return;
         }
@@ -146,7 +151,21 @@ public class FighterAI : MonoBehaviour
     #region Combo
     private void RandomCombo()
     {
-        int random_combo = Mathematics.random.Next(combos.Count);
+        int random_combo=0;
+
+        if (combos.Count>1)
+        {
+            while (true)
+            {
+                random_combo = Mathematics.random.Next(combos.Count);
+
+                if (random_combo != current_combo)
+                {
+                    current_combo = random_combo;
+                    break;
+                }
+            }
+        }
 
         float combo_delay = Mathematics.random.NextFloatMinMax(combo_min_delay, combo_max_delay);
 
@@ -240,7 +259,7 @@ public class FighterAI : MonoBehaviour
                 yield return new WaitForSeconds(attacks[i].delay_after_attack);
 
                 // Chance to continue combo and perform next attack
-                if (fighter.Stunned || !(Mathematics.Probability(combo_chance) && Mathematics.Probability(attacks[i].next_attack_chance)))
+                if (!fighter.Controllable() || !(Mathematics.Probability(combo_chance) && Mathematics.Probability(attacks[i].next_attack_chance)))
                 {
                     break;
                 }

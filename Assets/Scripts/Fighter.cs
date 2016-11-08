@@ -41,10 +41,6 @@ public class Fighter : MonoBehaviour
 
     private bool ragdoll;
 
-    private float stun;
-
-    public bool Stunned { get { return stun > 0; } }
-
     private Vector3 spawn_position;
 
     private Quaternion spawn_rotation;
@@ -74,11 +70,9 @@ public class Fighter : MonoBehaviour
     #endregion AnimatorParameters
 
     #region StateIDs
-    private static int sid_heavy_hit;
     private static int sid_light_hit;
-
     private static List<int> sid_moves;
-    private static List<int> sid_hits;
+    private static List<int> sid_knockdown;
     #endregion StateIDs
     #endregion Variables
 
@@ -101,14 +95,19 @@ public class Fighter : MonoBehaviour
         ap_combat = Animator.StringToHash("Combat");
         ap_dead = Animator.StringToHash("Dead");
 
-        sid_heavy_hit = Animator.StringToHash("Base.HeavyHit");
         sid_light_hit = Animator.StringToHash("Base.LightHit");
 
-        sid_hits = new List<int>() { sid_heavy_hit, sid_light_hit };
+        sid_knockdown = new List<int>()
+        {
+            Animator.StringToHash("Base.Hitted.HeavyHit"),
+            Animator.StringToHash("Base.Hitted.Headspring")
+        };
 
-        sid_moves = new List<int>();
-        sid_moves.Add(Animator.StringToHash("Base.MoveForward"));
-        sid_moves.Add(Animator.StringToHash("Base.MoveBackward"));
+        sid_moves = new List<int>()
+        {
+            Animator.StringToHash("Base.MoveForward"),
+            Animator.StringToHash("Base.MoveBackward")
+        };
     }
     #endregion StaticConstructor
 
@@ -150,8 +149,6 @@ public class Fighter : MonoBehaviour
 
         GameEventSystem.StartListening(GameEventSystem.EventID.FightStart, Event_FightStart);
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundPreStart, Event_RoundPreStart);
-        GameEventSystem.StartListening(GameEventSystem.EventID.RoundStart, Event_RoundStart);
-        GameEventSystem.StartListening(GameEventSystem.EventID.RoundEnd, Event_RoundEnd);
         GameEventSystem.StartListening(GameEventSystem.EventID.RoundResults, Event_RoundResults);
     }
 
@@ -159,14 +156,9 @@ public class Fighter : MonoBehaviour
     {
         AnimatorParameters();
 
-        if (!FightData.action || health.IsDead())
+        if (!Controllable())
         {
             return;
-        }
-
-        if (Stunned)
-        {
-            stun -= Time.deltaTime;
         }
 
         const float RAY_MAX_DISTANCE = 10.0f;
@@ -233,15 +225,12 @@ public class Fighter : MonoBehaviour
         }
         else
         {
-            _enemy.stun = attack_data.stun_duration;
-
             int trigger = attack_data.heavy_hit ? ap_heavy_hit : ap_light_hit;
-            int current_state_id = _enemy.CurrentStateID();
 
             // Nothing can interrupt HeavyHit state
             // HeavyHit can interrupt LightHit state
-
-            if (current_state_id != sid_heavy_hit && !(current_state_id == sid_light_hit && !attack_data.heavy_hit))
+            
+            if (!_enemy.InKnockdownState())
             {
                 _enemy.LookAtEnemy();
                 _enemy._animator.SetTrigger(trigger);
@@ -273,16 +262,6 @@ public class Fighter : MonoBehaviour
 
         TeleportToSpawnPoint();
         _animator.SetTrigger(ap_combat);
-    }
-
-    private void Event_RoundStart()
-    {
-        stun = 0.0f;
-    }
-
-    private void Event_RoundEnd()
-    {
-        stun = float.MaxValue;
     }
 
     private void Event_RoundResults()
@@ -384,9 +363,19 @@ public class Fighter : MonoBehaviour
         return InState(sid_moves);
     }
 
-    private bool InHitState()
+    public bool InKnockdownState()
     {
-        return InState(sid_hits);
+        return InState(sid_knockdown);
+    }
+
+    public bool InHittedState()
+    {
+        return InKnockdownState() || InState(ap_light_hit);
+    }
+
+    private bool InState(int state)
+    {
+        return state == CurrentStateID();
     }
 
     private bool InState(List<int> states)
@@ -523,6 +512,11 @@ public class Fighter : MonoBehaviour
             Mathematics.Vector3ToVector2xz(enemy.transform.position),
             Mathematics.Vector3ToVector2xz(transform.position)
             );
+    }
+
+    public bool Controllable()
+    {
+        return !(!FightData.action || health.IsDead() || InHittedState()); 
     }
     #endregion Control
 }
